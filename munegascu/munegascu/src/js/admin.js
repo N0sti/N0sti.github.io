@@ -78,7 +78,7 @@ const Admin = (() => {
     const btn = document.querySelector(`.adm-tab-btn[data-tab="${tab}"]`);
     if (el)  el.style.display = 'block';
     if (btn) btn.classList.add('active');
-    if (tab === 'suggestions') _renderSuggestions();
+    if (tab === 'suggestions') { _renderSuggestions(); _renderGenreSuggestions(); }
     if (tab === 'bdd')         _renderBDD();
     if (tab === 'verbes')      _renderVerbList();
   }
@@ -202,6 +202,69 @@ const Admin = (() => {
     _renderSuggestions();
   }
 
+  // ── SUGGESTIONS DE GENRE (cf. NOTES_LINGUISTIQUES.md) ─────
+  // Même circuit que les suggestions de traduction : un visiteur propose,
+  // un admin valide ou rejette. Une fois validé, le mot passe en
+  // genreSource:'validé' et n'est plus jamais recalculé par l'heuristique
+  // (_applyGenderHeuristic dans database.js ignore les entrées qui ont
+  // déjà un genre fixé).
+  function _renderGenreSuggestions() {
+    const c = document.getElementById('genre-sugg-list');
+    if (!c) return;
+    const pending = (State.genreSuggestions || []).filter(s => s.status === 'pending');
+    const cnt = document.getElementById('genre-sugg-cnt');
+    if (cnt) cnt.textContent = pending.length;
+
+    if (!pending.length) {
+      c.innerHTML = '<p style="color:#bbb;font-size:.85rem">Aucune proposition de genre en attente.</p>';
+      return;
+    }
+
+    const label = g => g === 'f' ? 'féminin' : 'masculin';
+
+    c.innerHTML = pending.map(s => {
+      const id = Number(s.id);
+      return `<div class="suggestion-card" id="genre-sugg-${id}">
+        <div class="sugg-meta">📅 ${Security.esc(s.date)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><div class="label">Mot</div><div class="val">${Security.esc(s.fr)} → <span class="mc">${Security.esc(s.mc)}</span></div></div>
+          <div><div class="label">Genre actuel (heuristique)</div><div class="val">${Security.esc(label(s.currentGenre))}</div></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="label">Genre proposé</div>
+          <div class="val mc">${Security.esc(label(s.proposedGenre))}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-vert" data-id="${id}" onclick="Admin.validateGenreSugg(${id})">✅ Valider</button>
+          <button class="btn-ghost" data-id="${id}" onclick="Admin.rejectGenreSugg(${id})"
+                  style="color:var(--rouge)">❌ Rejeter</button>
+        </div>
+        <div class="modal-status" id="genre-sugg-status-${id}"></div>
+      </div>`;
+    }).join('');
+  }
+
+  function validateGenreSugg(id) {
+    const s = (State.genreSuggestions || []).find(x => x.id === id);
+    if (!s) return;
+    const entry = DB_WORDS.find(w => w.fr === s.fr);
+    if (!entry) { _status('genre-sugg-status', 'Mot introuvable, peut-être supprimé.', true); return; }
+
+    entry.genre = s.proposedGenre;
+    entry.genreSource = 'validé'; // ne sera plus jamais recalculé par l'heuristique
+
+    s.status = 'validated';
+    renderDict();
+    _renderGenreSuggestions();
+    _status('genre-sugg-status', '✅ Genre validé et appliqué.');
+  }
+
+  function rejectGenreSugg(id) {
+    const s = (State.genreSuggestions || []).find(x => x.id === id);
+    if (s) s.status = 'rejected';
+    _renderGenreSuggestions();
+  }
+
   // ── BDD VIEWER ───────────────────────────────────────────
   const BDD_PAGE = 35;
   let _bdd = { cat: 'all', q: '', page: 0 };
@@ -271,12 +334,18 @@ const Admin = (() => {
           </div>
         </td>
         <td><select class="bdd-cat-sel" onchange="Admin.saveCell(${idx},'cat',this.value)">${catOpts}</select></td>
+        <td>
+          <select class="bdd-cat-sel" onchange="Admin.saveGenre(${idx},this.value)" title="${e.genreSource === 'validé' ? 'Genre validé' : 'Genre estimé automatiquement — modifiez pour le valider'}">
+            <option value="m"${e.genre === 'm' ? ' selected' : ''}>Masculin${e.genreSource !== 'validé' ? ' (estimé)' : ''}</option>
+            <option value="f"${e.genre === 'f' ? ' selected' : ''}>Féminin${e.genreSource !== 'validé' ? ' (estimé)' : ''}</option>
+          </select>
+        </td>
         <td style="white-space:nowrap">
           <button class="bdd-btn-edit" onclick="Admin.toggleEdit(${idx})" title="Modifier">✏️</button>
           <button class="bdd-btn-del"  onclick="Admin.delWord(${idx})" title="Supprimer">🗑️</button>
         </td>
       </tr>`;
-    }).join('') : '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:20px">Aucun résultat</td></tr>';
+    }).join('') : '<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px">Aucun résultat</td></tr>';
 
     const pag = document.getElementById('bdd-pag');
     if (pag) {
@@ -328,6 +397,22 @@ const Admin = (() => {
     if (map[field] !== undefined && spans[map[field]]) {
       spans[map[field]].textContent = v.value;  // textContent, pas innerHTML
     }
+  }
+
+  // Modification directe du genre par l'admin depuis le tableau BDD.
+  // Couvre le cas signalé par l'utilisateur : un mauvais clic (ou une
+  // proposition communautaire mal renseignée) peut être corrigé à tout
+  // moment ici, sans passer par le circuit suggestion/validation — l'admin
+  // a toujours la main directement sur la donnée. Comme pour une validation
+  // de suggestion, le genre passe en genreSource:'validé' et n'est plus
+  // jamais recalculé par l'heuristique (cf. _applyGenderHeuristic, database.js).
+  function saveGenre(idx, val) {
+    if (val !== 'm' && val !== 'f') return;
+    if (!DB_WORDS[idx]) return;
+    DB_WORDS[idx].genre = val;
+    DB_WORDS[idx].genreSource = 'validé';
+    renderDict(); // reflète immédiatement le badge vert dans l'onglet Dictionnaire
+    _status('bdd-status', `Genre de "${DB_WORDS[idx].fr}" mis à jour.`);
   }
 
   function delWord(idx) {
@@ -592,7 +677,8 @@ const Admin = (() => {
   return {
     open, close, logout, tryLogin, switchTab: _switchTab,
     validateSugg, rejectSugg,
-    bddFilter, bddPage, toggleEdit, saveCell, delWord,
+    validateGenreSugg, rejectGenreSugg,
+    bddFilter, bddPage, toggleEdit, saveCell, saveGenre, delWord,
     openVerbTab, deleteVerb, handleVerbJSON,
     csvDrag, csvDrop, handleCSV,
     addManual, exportCSV, clearCustom,

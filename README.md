@@ -49,15 +49,62 @@ Section de référence complète :
 - Adverbes courants
 - Structure de la phrase (affirmative, négative, interrogative, exclamative)
 
+### 📖 Dictionnaire
+
+- **1105 mots** de vocabulaire, dont 341 ajoutés en ciblant directement les mots
+  les plus employés du français au quotidien (référence académique : liste de
+  fréquence lexicale d'Étienne Brunet, ~1500 mots, utilisée par l'Éducation
+  nationale) — pour couvrir le plus d'usages courants avec le moins de mots
+  possible, plutôt que d'ajouter du vocabulaire au hasard
+- Toutes les entrées vérifiées contre le Dictionnaire français-monégasque de
+  Louis Frolla (1963)
+
 ### 🔀 Conjugueur
 
-- **33 verbes** conjugués : être, avoir, aller, faire, aimer, vouloir, pouvoir, dire, parler, manger, boire, venir, savoir, voir, donner, appeler, habiter, trouver, courir, écrire, lire, prendre, chanter, finir, dormir, marcher, partir, vivre, vendre, répondre, perdre, apprendre, nager
+- **337 verbes** conjugués. Au-delà des verbes ajoutés au fil des sessions
+  précédentes, une passe spécifique a ciblé les **verbes français les plus
+  employés au quotidien** (classement par fréquence réelle d'usage, référence
+  académique « Dictionnaire des fréquences ») pour qu'un maximum de phrases
+  tapées par un visiteur trouvent une traduction, sans avoir à deviner quel
+  verbe rare ajouter en premier
 - **6 temps** : présent, imparfait, futur, conditionnel, subjonctif, impératif
-- Conjugaisons sourcées depuis la *Grammaire monégasque* de Louis Frolla (1960,
-  réédition Comité National des Traditions Monégasques) — voir `NOTES_LINGUISTIQUES.md`
-  pour le détail des sources et les points encore à valider par un locuteur natif
+- La reconnaissance de formes conjuguées françaises tapées dans le traducteur
+  (« je cherche », « nous changeons »...) couvre désormais ces verbes à haute
+  fréquence en plus des verbes irréguliers déjà gérés
+- Conjugaisons sourcées depuis la *Grammaire monégasque* et le *Dictionnaire
+  français-monégasque* de Louis Frolla — voir `NOTES_LINGUISTIQUES.md` pour
+  le détail des sources et les points encore à valider par un locuteur natif
+- Champ de recherche libre : n'importe lequel des 337 verbes peut être tapé,
+  même s'il n'apparaît pas dans la liste de boutons rapides
 - Prononciation 🔊 disponible sur chaque forme conjuguée
 - Recherche libre ou sélection rapide par clic
+
+### 🎓 Apprendre (parcours de leçons)
+
+- Parcours de leçons conçu pour un vrai apprentissage de fond (pas un
+  exercice de mémorisation superficielle), chacune en 6 temps : dialogue
+  modèle (FR+MC avec audio), **fiche de vocabulaire** (avec conjugaison
+  complète des verbes nouveaux), **fiche de grammaire détaillée** (genre,
+  pluriel, articles, conjugaison par groupe, temps verbaux, négation,
+  impératif...), puis trois exercices — **thème** (traduire un mot
+  FR→MC), **phrase** (traduire une phrase complète FR→MC) et **texte à
+  trous** (compléter un mot manquant dans une phrase monégasque)
+- Bonus révision en fin de leçon, qui renvoie vers le mode Quiz existant
+- Enchaînement **linéaire souple** : toutes les leçons sont accessibles dès
+  le début, un ordre conseillé guide sans contraindre
+- Progression sauvegardée dans le navigateur (localStorage) : les leçons
+  terminées et leur score restent visibles après rechargement de la page
+- **Aucune traduction n'est jamais écrite en dur dans une leçon** : chaque
+  exercice référence un mot/verbe/phrase par sa clé exacte dans le
+  dictionnaire. Une correction validée (via le système communautaire ou
+  l'admin) se répercute donc automatiquement dans toutes les leçons qui
+  utilisent ce mot, sans avoir à les retoucher une par une
+- 9 leçons organisées par progression thématique, du niveau 1 (se
+  présenter, être/avoir, conjugaison par groupe, négation/chiffres) au
+  niveau 3 (restaurant/politesse, urgences/impératif) — voir
+  `NOTES_LINGUISTIQUES.md` pour le détail de l'architecture et les choix
+  de construction. **Ce contenu grammatical reste à faire relire par un
+  locuteur natif avant toute publication définitive.**
 
 ### ✏️ Corrections participatives (communauté)
 

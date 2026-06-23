@@ -16,6 +16,7 @@ const State = {
   viewMode:         'words',
   customWords:      [],
   suggestions:      [],
+  genreSuggestions: [], // propositions de correction de genre (cf. NOTES_LINGUISTIQUES.md)
   conflictQueue:    [],
   lastTranslation:  { input: '', output: '', tokens: [] },
   selectedCorrWord: null,
@@ -296,6 +297,9 @@ function renderWordsList(data) {
 
   c.innerHTML = data.map(e => {
     // Toutes les données BDD échappées
+    const genreLabel = e.genre === 'f' ? 'féminin' : 'masculin';
+    const genreBadgeClass = e.genreSource === 'validé' ? 'badge-vert' : 'badge-gris';
+    const genreTitle = e.genreSource === 'validé' ? 'Genre validé par un administrateur' : 'Genre déduit automatiquement (non vérifié) — cliquez pour proposer une correction';
     return `<div class="dict-card${e.custom?' custom':''}"
          onclick="useWord('${Security.escAttr(e.fr)}')">
       <div>
@@ -312,6 +316,11 @@ function renderWordsList(data) {
           <button class="speak-btn" style="width:22px;height:22px;font-size:.7rem"
                   data-speak-mc="${Security.escAttr(e.mc)}"
                   onclick="event.stopPropagation();Audio.speak(this.dataset.speakMc,event,'mc')">🔊</button>
+          <span class="badge ${genreBadgeClass}" style="font-size:.6rem;margin-left:4px;cursor:pointer"
+                title="${genreTitle}"
+                onclick="event.stopPropagation();openGenreSuggest('${Security.escAttr(e.fr)}','${e.genre}','${e.genreSource||'heuristique'}')">
+            ${genreLabel}${e.genreSource !== 'validé' ? ' ✏️' : ' ✓'}
+          </span>
         </div>
         <div class="dph">[${Security.esc(e.ph||'')}]</div>
       </div>
@@ -352,6 +361,57 @@ function useWord(fr) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function usePhrase(fr) { useWord(fr); }
+
+// ── Suggestion de correction de genre ──────────────────────
+// Le genre affiché dans le dictionnaire est déduit par heuristique tant
+// qu'il n'a pas été validé par un admin (cf. _applyGenderHeuristic dans
+// database.js). Cette modale permet à n'importe quel visiteur de proposer
+// une correction, mise en file d'attente pour validation admin — même
+// circuit que les suggestions de traduction déjà existantes.
+let _genreSuggestTarget = null;
+
+function openGenreSuggest(fr, currentGenre, source) {
+  if (source === 'validé') return; // déjà validé, pas de re-proposition
+  _genreSuggestTarget = fr;
+  document.getElementById('genre-word-fr').textContent = fr;
+  const entry = DB_WORDS.find(w => w.fr === fr);
+  document.getElementById('genre-word-mc').textContent = entry ? entry.mc : '';
+  document.getElementById('genre-choice-m').checked = currentGenre === 'm';
+  document.getElementById('genre-choice-f').checked = currentGenre === 'f';
+  document.getElementById('genre-suggest-status').className = 'modal-status';
+  document.getElementById('genre-overlay').classList.add('show');
+}
+
+function closeGenreSuggest() {
+  document.getElementById('genre-overlay').classList.remove('show');
+  _genreSuggestTarget = null;
+}
+
+function submitGenreSuggest() {
+  const chosen = document.querySelector('input[name="genre-choice"]:checked');
+  if (!chosen) { showStatus('genre-suggest-status', 'Choisissez un genre.', true); return; }
+  if (!_genreSuggestTarget) return;
+
+  const entry = DB_WORDS.find(w => w.fr === _genreSuggestTarget);
+  if (!entry) { showStatus('genre-suggest-status', 'Mot introuvable.', true); return; }
+
+  // Évite les doublons : une seule proposition en attente par mot
+  const already = State.genreSuggestions.find(s => s.fr === _genreSuggestTarget && s.status === 'pending');
+  if (already) { showStatus('genre-suggest-status', 'Une proposition est déjà en attente pour ce mot.', true); return; }
+
+  State.genreSuggestions.push({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    fr: _genreSuggestTarget,
+    mc: entry.mc,
+    currentGenre: entry.genre,
+    proposedGenre: chosen.value,
+    date: new Date().toLocaleDateString('fr-FR'),
+    status: 'pending',
+  });
+
+  showStatus('genre-suggest-status', '✅ Proposition envoyée, en attente de validation.');
+  setTimeout(closeGenreSuggest, 1200);
+}
 
 // ── Conjugaison ──────────────────────────────────────────────
 function loadVerb(v) {
@@ -455,6 +515,7 @@ function showStatus(id, msg, isErr = false) {
 function initUI() {
   buildCatBar();
   renderDict();
+  if (typeof Mooc !== 'undefined' && typeof MOOC_LESSONS !== 'undefined') Mooc.init(MOOC_LESSONS);
   const tin = document.getElementById('tin');
   if (tin) tin.addEventListener('input', () => LangDetect.autoDetect(tin.value));
 }

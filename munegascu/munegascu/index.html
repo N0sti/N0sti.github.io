@@ -74,6 +74,7 @@
   <button class="tab-btn"        onclick="switchTab('grammaire',this)">📐 Grammaire</button>
   <button class="tab-btn"        onclick="switchTab('conjugaison',this)">🔀 Conjugaison</button>
   <button class="tab-btn"        onclick="switchTab('quiz',this)">🎮 Quiz</button>
+  <button class="tab-btn"        onclick="switchTab('mooc',this)">🎓 Apprendre</button>
   <button class="tab-btn"        onclick="switchTab('csv',this)" id="tab-btn-csv" style="display:none">📥 Import CSV</button>
 </nav>
 
@@ -346,6 +347,15 @@
         <span class="pill" onclick="loadVerb('appeler')">appeler</span>
         <span class="pill" onclick="loadVerb('habiter')">habiter</span>
         <span class="pill" onclick="loadVerb('trouver')">trouver</span>
+        <span class="pill" onclick="loadVerb('rester')">rester</span>
+        <span class="pill" onclick="loadVerb('mettre')">mettre</span>
+        <span class="pill" onclick="loadVerb('devoir')">devoir</span>
+        <span class="pill" onclick="loadVerb('comprendre')">comprendre</span>
+        <span class="pill" onclick="loadVerb('arriver')">arriver</span>
+        <span class="pill" onclick="loadVerb('connaître')">connaître</span>
+        <span class="pill" onclick="loadVerb('croire')">croire</span>
+        <span class="pill" onclick="loadVerb('recevoir')">recevoir</span>
+        <span class="pill" onclick="loadVerb('tenir')">tenir</span>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
@@ -447,6 +457,24 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════════
+       ONGLET APPRENDRE (MOOC) — parcours de leçons progressif
+       ══════════════════════════════════════════════════════ -->
+  <section id="tab-mooc" class="tab-content">
+    <h2 class="section-title">🎓 Apprendre le monégasque</h2>
+    <p style="color:#777;font-size:.9rem;margin-bottom:18px">
+      Un parcours de leçons courtes : une phrase modèle,
+      puis deux exercices (traduire, compléter). Les leçons sont indépendantes —
+      suivez l'ordre conseillé ou avancez à votre rythme.
+    </p>
+
+    <!-- Page d'accueil du parcours : liste des leçons -->
+    <div id="mooc-home"></div>
+
+    <!-- Zone de jeu d'une leçon active (remplie dynamiquement par Mooc.js) -->
+    <div id="mooc-lesson-root" style="display:none"></div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════
        ONGLET CSV (accès admin seulement)
        ══════════════════════════════════════════════════════ -->
   <section id="tab-csv" class="tab-content">
@@ -507,6 +535,12 @@
         <div class="adm-tab-content" id="adm-suggestions">
           <div id="sugg-list"><p style="color:#bbb;font-size:.85rem">Aucune suggestion en attente.</p></div>
           <div class="modal-status" id="sugg-status"></div>
+
+          <h4 style="margin-top:22px;padding-top:16px;border-top:2px solid var(--sable2)">
+            🚻 Genres proposés par la communauté <span class="badge" id="genre-sugg-cnt">0</span>
+          </h4>
+          <div id="genre-sugg-list"><p style="color:#bbb;font-size:.85rem">Aucune proposition de genre en attente.</p></div>
+          <div class="modal-status" id="genre-sugg-status"></div>
         </div>
 
         <!-- ONGLET BDD -->
@@ -527,6 +561,7 @@
                   <th>Monégasque</th>
                   <th>Phonétique IPA</th>
                   <th>Catégorie</th>
+                  <th>Genre</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -643,6 +678,41 @@ mer,Mare,mare,nature</div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
+     MODAL SUGGESTION DE GENRE
+     ══════════════════════════════════════════════════════════ -->
+<div class="conflict-overlay" id="genre-overlay" onclick="if(event.target===this)closeGenreSuggest()">
+  <div class="conflict-modal" style="width:min(420px,96vw)">
+    <div class="conflict-header">
+      <h2>✏️ Proposer une correction de genre</h2>
+      <button style="background:transparent;border:none;color:var(--blanc);font-size:1.4rem;cursor:pointer"
+              onclick="closeGenreSuggest()">×</button>
+    </div>
+    <div class="conflict-body">
+      <p style="font-size:.85rem;color:#555;margin-bottom:14px">
+        Le genre (masculin/féminin) de <strong id="genre-word-fr"></strong>
+        (<span class="mc" id="genre-word-mc"></span>) a été déduit automatiquement
+        et n'a pas encore été vérifié par un locuteur natif. Si vous savez quel est
+        le bon genre, proposez-le ci-dessous — un administrateur validera avant
+        que ça devienne définitif.
+      </p>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="genre-choice" value="m" id="genre-choice-m"> Masculin
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="genre-choice" value="f" id="genre-choice-f"> Féminin
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-ghost" onclick="closeGenreSuggest()">Annuler</button>
+        <button class="btn-red" onclick="submitGenreSuggest()">Envoyer la proposition</button>
+      </div>
+      <div class="modal-status" id="genre-suggest-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
      SCRIPTS  (ordre important : data → moteur → ui → admin → audio → init)
      ══════════════════════════════════════════════════════════ -->
 <!-- ══════════════════════════════════════════════════════════
@@ -665,17 +735,19 @@ mer,Mare,mare,nature</div>
   </div>
 </div>
 
-<!-- Ordre important : security → data → moteur → ui → admin → history → quiz → spellcheck → audio -->
+<!-- Ordre important : security → data → moteur → ui → admin → history → quiz → mooc → spellcheck → audio -->
 <script src="src/js/security.js"></script>
 <script src="src/data/database.js"></script>
 <!-- src/data/database_extra.js n'est plus chargé : vérification faite, son contenu
      (391 entrées) est déjà intégralement présent dans database.js. Voir la note
      en tête de ce fichier pour le détail. -->
+<script src="src/data/lessons.js"></script>
 <script src="src/js/translator.js"></script>
 <script src="src/js/ui.js"></script>
 <script src="src/js/admin.js"></script>
 <script src="src/js/history.js"></script>
 <script src="src/js/quiz.js"></script>
+<script src="src/js/mooc.js"></script>
 <script src="src/js/spellcheck.js"></script>
 <script src="src/js/audio.js"></script>
 <script>
